@@ -50,6 +50,7 @@
   .unit{display:flex;gap:6px}
   .unit button{border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:0 14px;font-weight:700;color:var(--muted);cursor:pointer}
   .unit button[aria-pressed="true"]{border-color:var(--ink);color:var(--ink)}
+  .unit-badge{display:flex;align-items:center;justify-content:center;padding:0 16px;border:1.5px solid var(--line);border-radius:12px;font-family:'Fredoka';font-weight:600;color:var(--muted);background:#fff;min-width:56px}
   .shape{display:grid;gap:10px}
   .shape label{display:flex;gap:12px;align-items:flex-start;border:1.5px solid var(--line);border-radius:14px;padding:13px 14px;cursor:pointer;transition:.15s}
   .shape label:hover{border-color:#D8CBB6}
@@ -118,15 +119,20 @@
         </div>
       </div>
 
+      <div class="field">
+        <label>Units</label>
+        <div class="seg" role="group" aria-label="Units" id="unit-toggle">
+          <button type="button" data-unit="lb" aria-pressed="true">Pounds (lb)</button>
+          <button type="button" data-unit="kg" aria-pressed="false">Kilograms (kg)</button>
+        </div>
+      </div>
+
       <div class="row">
         <div class="field" style="flex:1;min-width:150px">
           <label for="cur">Current weight</label>
           <div style="display:flex;gap:8px">
-            <input id="cur" type="number" min="0" step="0.1" placeholder="e.g. 8">
-            <div class="unit" role="group" aria-label="Units">
-              <button type="button" data-unit="kg" aria-pressed="true">kg</button>
-              <button type="button" data-unit="lb" aria-pressed="false">lb</button>
-            </div>
+            <input id="cur" type="number" min="0" step="0.1" placeholder="e.g. 18">
+            <span class="unit-badge" id="cur-unit">lb</span>
           </div>
         </div>
       </div>
@@ -151,8 +157,8 @@
       <div class="field">
         <label for="you">Your weight (for the reality check)</label>
         <div style="display:flex;gap:8px">
-          <input id="you" type="number" min="0" step="0.5" placeholder="e.g. 75" value="75">
-          <div class="unit"><button type="button" aria-pressed="true" style="cursor:default">kg</button></div>
+          <input id="you" type="number" min="0" step="0.5" placeholder="e.g. 165" value="165">
+          <span class="unit-badge" id="you-unit">lb</span>
         </div>
       </div>
 
@@ -212,12 +218,20 @@
 
 <script>
 (function(){
-  var species='dog', unit='kg', method='shape';
+  var species='dog', unit='lb', method='shape';
   var q=function(s){return document.querySelector(s)};
   var qa=function(s){return Array.prototype.slice.call(document.querySelectorAll(s))};
   function bindSeg(attr,cb){qa('[data-'+attr+']').forEach(function(b){b.addEventListener('click',function(){var g=b.parentNode;Array.prototype.slice.call(g.querySelectorAll('[data-'+attr+']')).forEach(function(x){x.setAttribute('aria-pressed','false')});b.setAttribute('aria-pressed','true');cb(b.getAttribute('data-'+attr));});});}
   bindSeg('species',function(v){species=v});
-  bindSeg('unit',function(v){unit=v});
+  function convertVal(id,factor){var el=q('#'+id);if(el&&el.value!==''){var v=parseFloat(el.value);if(!isNaN(v))el.value=Math.round(v*factor*10)/10;}}
+  bindSeg('unit',function(v){
+    if(v===unit)return;
+    var factor=(v==='lb')?2.20462:1/2.20462;
+    convertVal('cur',factor);convertVal('ideal',factor);convertVal('you',factor);
+    unit=v;
+    q('#cur-unit').textContent=unit;q('#you-unit').textContent=unit;
+    q('#cur').placeholder=(unit==='lb')?'e.g. 18':'e.g. 8';
+  });
   bindSeg('method',function(v){method=v;q('#shape-mode').style.display=v==='shape'?'grid':'none';q('#weight-mode').style.display=v==='weight'?'block':'none';});
   function calc(){
     var cur=parseFloat(q('#cur').value); var you=parseFloat(q('#you').value)||75;
@@ -239,14 +253,14 @@
     if(pctOver>=6){
       var over=Math.round(you*pctOver/100*10)/10; var target=Math.round((you+over)*10)/10;
       q('#human-lead').textContent='If you were as overweight as '+name+'…';
-      q('#human-big').textContent='you\'d weigh '+target+' kg';
-      q('#human-sub').textContent='That\'s about '+over+' kg of extra you — carried on every walk, every jump, every nap.';
+      q('#human-big').textContent='you\'d weigh '+target+' '+unit;
+      q('#human-sub').textContent='That\'s about '+over+' '+unit+' of extra you — carried on every walk, every jump, every nap.';
       humanBox.style.display='block';
     } else {humanBox.style.display='none';}
     q('#result').classList.add('show');
     setTimeout(function(){q('#result').scrollIntoView({behavior:'smooth',block:'center'})},60);
     q('#share').onclick=function(){
-      var txt=(pctOver>=6)?'My pet is '+Math.round(pctOver)+'% overweight. Scaled to me, that\'s like weighing '+Math.round((you+you*pctOver/100))+' kg. 😳 (via pawpounds.com)':'Just checked — my pet is in perfect shape. 💪 (via pawpounds.com)';
+      var txt=(pctOver>=6)?'My pet is '+Math.round(pctOver)+'% overweight. Scaled to me, that\'s like weighing '+Math.round(you+you*pctOver/100)+' '+unit+'. 😳 (via pawpounds.com)':'Just checked — my pet is in perfect shape. 💪 (via pawpounds.com)';
       navigator.clipboard&&navigator.clipboard.writeText(txt).then(function(){var b=q('#share');var o=b.textContent;b.textContent='✓ Copied';setTimeout(function(){b.textContent=o},1600);});
     };
   }
